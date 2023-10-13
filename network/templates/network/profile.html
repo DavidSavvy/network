@@ -1,0 +1,89 @@
+{% extends "network/layout.html" %}
+
+{% block body %}
+    <style>
+        .post {
+            border-style: solid;
+            border-width: 1px;
+            margin: 10px 18px 0px 18px;
+            border-radius: 3px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 25% 50% 25%;
+        }
+        .grid_div {
+            text-align: center;
+
+            padding: 10px;
+        }
+        label {
+            font-weight: bold;
+        }
+    </style>
+    <h1>User: {{ poster }}</h1>
+    <label style="margin-right: 15px;">Followers: {{ poster.followers.count }}</label>
+    <label>Following: {{ poster.following.count }}</label>
+    {% if user.is_authenticated and user != poster %}
+        {% if poster in user.following.all %}
+            <form method="POST" action="/follow_unfollow/{{ poster.id }}">
+                {% csrf_token %}
+                <input name="following_btn" value="Unfollow" type="submit" class="btn btn-primary" style="padding: 0; width: 10%;">
+            </form>
+        {% else %}
+            <form method="POST" action="/follow_unfollow/{{ poster.id }}">
+                {% csrf_token %}
+                <input name="following_btn" value="Follow" type="submit" class="btn btn-outline-primary" style="padding: 0; width: 10%;">
+            </form>
+        {% endif %}
+    {% endif %}
+    {% for post in page_obj %}
+        <div class="post" style="padding: 15px 15px 15px 15px;">
+            <h5><a style="color: black;" href="/user/{{ post.poster.id }}">{{ post.poster }}</a></h5>
+            {% if user.is_authenticated and user == post.poster %}
+                <a href="#" onclick="edit_post(event)">Edit</a>
+                <br>
+            {% endif %}
+            <input type="hidden" id="post_id" name="post_id" value="{{ post.post_id }}">
+            <text id="body">{{ post.body }}</text>
+            <br>
+            {% if user.is_authenticated and user != post.poster%}
+                <div id="like_div">
+                    <text id="like_button" onclick="like_post(event)">&#10084; {{ post.likers.count }}</text>
+                </div>
+            {% else %}
+                <div>
+                    <text id="like_button">&#10084; {{ post.likers.count }}</text>
+                </div>
+            {% endif %}
+            <text style="color: grey;">{{ post.timestamp }}</text>
+        </div>
+    {% endfor %}
+    <ul class="pagination" style="margin-left: 18px; margin-top: 10px;">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <span class="page-link"><a href="?page={{ page_obj.previous_page_number }}">Previous</a></span>
+            </li>
+        {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Previous</span>
+            </li>
+        {% endif %}
+        {% for page in page_number %}
+            {% if page == page_obj.number %}
+                <li class="page-item active"><a class="page-link" href="?page={{ page }}">{{ page }}</a></li>
+            {% else %}
+                <li class="page-item"><a class="page-link" href="?page={{ page }}">{{ page }}</a></li>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <span class="page-link"><a href="?page={{ page_obj.next_page_number }}">Next</a></span>
+            </li>
+        {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next</span>
+            </li>
+        {% endif %}
+    </ul>
+{% endblock %}

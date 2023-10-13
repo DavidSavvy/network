@@ -1,0 +1,195 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>{% block title %}Social Network{% endblock %}</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+        <link href="{% static 'network/styles.css' %}" rel="stylesheet">
+        <script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
+        <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
+        <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    </head>
+    <body>
+        <style>
+            .edited_post {
+                border-style: solid;
+                border-width: 1px;
+                margin: 0px 18px 10px 18px;
+                border-radius: 3px;
+                padding: 15px 15px 15px 15px;
+            }
+            #edit_post {
+                height: 250px;
+                padding: 15px 15px 15px 15px;
+            }
+            #edit_text {
+                width: 100%;
+            }
+            #user_link {
+                color: black;
+            }
+            #timestamp {
+                color: grey;
+            }
+            #like_div {
+            width: 1.5%;
+            }
+            #like_div:hover {
+                border-width: 1px;
+                border-style: hidden;
+                border-radius: 5px;
+                background-color: lightgrey;
+                cursor: pointer;
+            }
+        </style>
+        <script type="text/babel">
+            // Variable to only allow one post to be edited at a time
+            var is_editing = false;
+
+            // Must be capitalized for some reason
+            // Primary edit function that handles the page view and API requests
+            function Display_editor(props){
+                is_editing = true;
+
+                // Function that asynchronously fetches updated post and runs the render function below
+                async function get_post(){
+                    await fetch(`/edit/${props.post_id}`, {
+                        method: "GET"
+                    })
+                    .then(response => response.json())
+                    .then(post => {
+                        // Checks if JsonResponse gave an error message, and throws error if needed
+                        if (Object.keys(post)[0] === "error") {
+                            throw new Error(post["error"]);
+                        }
+                        ReactDOM.render(<Display_edit post_id={post["post_id"]} poster={post["poster"]} poster_id={post["poster_id"]} likers={post["likers"]} timestamp={post["timestamp"]} body={post["body"]}/>, props.target);
+                    })
+                    // Catches error thrown and reloads page
+                    .catch(error => {
+                        alert(error);
+                        document.location.reload();
+                    })
+                }
+
+                // Standard react div return
+                function Display_edit(props){
+                    is_editing = false;
+                    return (
+                        <div id="post">
+                            <h5><a id="user_link" href={"/user/" + props.poster_id}>{props.poster}</a></h5>
+                            <a id="edit_link" href="#" onClick={edit_post}>Edit</a>
+                            <br/>
+                            <input type="hidden" id="post_id" name="post_id" value={props.post_id}/>
+                            <text id="body">{props.body}</text>
+                            <br/>
+                            <text id="like_button">&#10084; {props.likers}</text>
+                            <br/>
+                            <text id="timestamp">{props.timestamp}</text>
+                        </div>
+                    )
+                }
+
+                // Handles the PUT request to submit edit
+                function submit_edit(event){
+                    // API call to edit post with PUT
+                    fetch(`/edit/${props.post_id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            text: event.target.querySelector("#edit_text").value
+                        })
+                    })
+
+                    // Blocks submit refresh
+                    event.preventDefault();
+
+                    // Runs function to GET and display the updated post
+                    get_post();
+                }
+
+                // Sends the proper editing div
+                return (
+                    <div>
+                        <h4>Edit Post</h4>
+                        <form id="edit_form" onSubmit={submit_edit}>
+                            <textarea id="edit_text" rows="5" name="body_text" defaultValue={props.body}></textarea>
+                            <br/>
+                            <input class="btn btn-primary" type="submit" value="Save"/>
+                        </form>
+                    </div>
+                );
+            }
+
+            // Original call function when edit button is clicked
+            function edit_post(event){
+                // Grabs necessary information from HTML
+                let post_id = event.target.parentElement.querySelector("#post_id").value;
+                let body = event.target.parentElement.querySelector("#body").innerHTML;
+
+                // Makes sure only one post is edited at a time
+                if (is_editing == false){
+                    // Renders the above function/object thingy passing necessary values
+                    ReactDOM.render(<Display_editor body={body} post_id={post_id} target={event.target.parentElement}/>, event.target.parentElement);
+                    event.preventDefault();
+                }
+            }
+
+            // Original call function when like div is clicked
+            function like_post(event){
+                // React element return function
+                function Display_likes(props){
+                    return (
+                        <text id="like_button" onClick={like_post}>&#10084; {props.likers}</text>
+                    )
+                }
+                let post_id = event.target.parentElement.parentElement.querySelector("#post_id").value;
+
+                // API call to like/unlike post with PUT
+                fetch(`/like/${post_id}`)
+                .then(response => response.json())
+                .then(post => {
+                    // Checks if API returned a JsonResponse error
+                    if (Object.keys(post)[0] === "error") {
+                            throw new Error(post["error"]);
+                        }
+                        ReactDOM.render(<Display_likes likers={post["likers"]}/>, event.target.parentElement);
+                })
+                .catch(error => alert(error))
+            }
+        </script>
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+            <a class="navbar-brand" href="{% url 'index' %}">Network</a>
+            <div>
+              <ul class="navbar-nav mr-auto">
+                {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/user/{{ user.id }}"><strong>{{ user.username }}</strong></a>
+                    </li>
+                {% endif %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'index' %}">All Posts</a>
+                </li>
+                {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/following">Following</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'logout' %}">Log Out</a>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'login' %}">Log In</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'register' %}">Register</a>
+                    </li>
+                {% endif %}
+              </ul>
+            </div>
+          </nav>
+        <div class="body">
+            {% block body %}
+            {% endblock %}
+        </div>
+    </body>
+</html>
